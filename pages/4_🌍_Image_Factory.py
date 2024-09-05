@@ -23,7 +23,7 @@ def main():
     st.title("AI 图像工厂 🖼️")
     st.markdown("将GenAI的能力应用到电商图片制作中，激发创意，提升效率！")
 
-    image_gen, image_variation_sdxl, image_variation_titan, image_background_removal = st.tabs(['Image Generation', 'Image Variation(sdxl)', 'Image Variation(titan)', 'Background Removal'])
+    image_gen, image_variation_sd, image_variation_titan, image_background_removal = st.tabs(['Image Generation', 'Image Variation(sd)', 'Image Variation(titan)', 'Background Removal'])
 
     with image_gen:
         st.title("根据文字描述生成图片")
@@ -33,7 +33,7 @@ def main():
         text = st.text_area("请输入图片描述", text_state, height=100)
     
         # 模型选择
-        model_options = ["stability.stable-diffusion-xl-v1", "amazon.titan-image-generator-v2:0"]
+        model_options = ["stability.stable-image-ultra-v1:0", "stability.stable-image-core-v1:0", "stability.sd3-large-v1:0"]
         selected_model = st.selectbox("选择模型", model_options)
     
         # 生成按钮
@@ -61,22 +61,20 @@ def main():
                         st.error(f'遇到执行错误: {image_result}')
             else:
                 st.warning("请输入图片描述!")
-    
-    
-    with image_variation_sdxl:
+
+    with image_variation_sd:
         st.title("图像变体生成")
-        st.subheader("上传原图，选择变体的风格")
-        model_id='stability.stable-diffusion-xl-v1'
+        st.subheader("上传原图，输入提示词，生成新图片")
+        model_id='stability.sd3-large-v1:0'
+    
         # 初始化 session state
         if 'uploaded_file' not in st.session_state:
             st.session_state.uploaded_file = None
-        if 'selected_style' not in st.session_state:
-            st.session_state.selected_style = STYLES[0]
-        if 'pre_prompts' not in st.session_state:
-            st.session_state.pre_prompts = ""
+        if 'user_prompt' not in st.session_state:
+            st.session_state.user_prompt = ""
         if 'generated_image' not in st.session_state:
             st.session_state.generated_image = None
-        
+    
         def process_uploaded_image():
             File = st.session_state.uploaded_file
             save_folder = os.getenv("save_folder")
@@ -88,69 +86,50 @@ def main():
             if save_path.exists():
                 file_name = save_path
                 
-                # 定义回调函数
-                def on_style_change():
-                    new_style = st.session_state.style_selector
-                    with st.spinner('正在生成提示词...'):
-                        st.session_state.pre_prompts = generate_prompt_from_image(file_name, style=new_style)
+                # 显示原始图片
+                st.subheader("原始图片")
+                display_and_resize_image(file_name)
     
-                # 风格选择
-                selected_style = st.selectbox(
-                    "选择风格", 
-                    STYLES, 
-                    index=STYLES.index(st.session_state.selected_style),
-                    on_change=on_style_change,
-                    key="style_selector"
-                )
-                st.session_state.selected_style = selected_style
+                # 用户输入提示词
+                user_prompt = st.text_area("输入提示词:", value=st.session_state.user_prompt, key="user_prompt_area")
+                st.session_state.user_prompt = user_prompt
     
-                # 生成并编辑提示词
-                if 'pre_prompts' not in st.session_state or st.session_state.pre_prompts == "":
-                    with st.spinner('正在生成提示词...'):
-                        st.session_state.pre_prompts = generate_prompt_from_image(file_name, style=selected_style)
-                
-                pre_prompts = st.text_area("提示词,可自由编辑:", value=st.session_state.pre_prompts, key="prompt_area_sdxl")
-                st.session_state.pre_prompts = pre_prompts
+                # 优化提示词按钮
+                if st.button('优化提示词'):
+                    with st.spinner('正在优化提示词...'):
+                        optimized_prompt = generate_prompt_from_image(file_name, positive_prompt=user_prompt)
+                    st.session_state.user_prompt = optimized_prompt
+                    st.rerun()
     
                 # 生成新图像按钮
                 if st.button('生成新图片'):
                     with st.spinner('正在生成新图片...'):
-                        status, result = generate_or_vary_image(model_id=model_id, positive_prompt=pre_prompts,   style_preset=selected_style, source_image=file_name)
+                        status, result = generate_or_vary_image(model_id=model_id, positive_prompt=st.session_state.user_prompt, source_image=file_name)
                     if status == 0:
                         st.session_state.generated_image = result
                         st.success('新图片生成成功！')
                     else:
                         st.error(f'遇到执行错误: {result}')
     
-                # 创建两列布局
-                col1, col2 = st.columns(2)
+                # 显示生成的变体图片
+                st.subheader("变体图片")
+                if st.session_state.generated_image:
+                    display_and_resize_image(st.session_state.generated_image)
+                else:
+                    st.info("生成的变体图片将显示在这里")
     
-                # 在左列显示原始图片
-                with col1:
-                    st.subheader("原始图片")
-                    display_and_resize_image(file_name)
-    
-                # 在右列显示生成的变体图片
-                with col2:
-                    st.subheader("变体图片")
-                    if st.session_state.generated_image:
-                        display_and_resize_image(st.session_state.generated_image)
-                    else:
-                        st.info("生成的变体图片将显示在这里")
-    
-        uploaded_file = st.file_uploader('选择你的原始图片', type=["webp", "png", "jpg", "jpeg"], key="variation_img")
+        uploaded_file = st.file_uploader('选择你的原始图片', type=["png", "jpg", "jpeg"], key="variation_img")
         
         # 检查是否有新文件上传
         if uploaded_file is not None and uploaded_file != st.session_state.uploaded_file:
             st.session_state.uploaded_file = uploaded_file
-            # 清除之前的 style 和 prompt
-            st.session_state.selected_style = STYLES[0]
-            st.session_state.pre_prompts = ""
+            st.session_state.user_prompt = ""
             st.session_state.generated_image = None
             process_uploaded_image()
         elif uploaded_file is not None:
             process_uploaded_image()
- 
+
+
     with image_variation_titan:
         st.title("图像变体生成")
         st.subheader("上传原图，输入提示词")
@@ -220,7 +199,7 @@ def main():
                     else:
                         st.info("生成的变体图片将显示在这里")
     
-        uploaded_file = st.file_uploader('选择你的原始图片', type=["webp", "png", "jpg", "jpeg"], key="variation_img_titan")
+        uploaded_file = st.file_uploader('选择你的原始图片', type=["png", "jpg", "jpeg"], key="variation_img_titan")
         
         # 检查是否有新文件上传
         if uploaded_file is not None and uploaded_file != st.session_state.uploaded_file:
@@ -239,7 +218,7 @@ def main():
         model_id='amazon.titan-image-generator-v2:0'
     
         # 文件上传器
-        file = st.file_uploader('选择要处理的图片', type=["webp", "png", "jpg", "jpeg"], key="background_removal_img")
+        file = st.file_uploader('选择要处理的图片', type=["png", "jpg", "jpeg"], key="background_removal_img")
         
         # 提交按钮
         result = st.button("移除背景", key="submit_image_for_background_removal")

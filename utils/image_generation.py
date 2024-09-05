@@ -37,22 +37,28 @@ def generate_image_request(model_id, body):
     
     bedrock = boto3.client(service_name="bedrock-runtime", region_name='us-west-2')
     response = bedrock.invoke_model(body=body, modelId=model_id, accept="application/json", contentType="application/json")
-    response_body = json.loads(response.get("body").read())
+    response_body = json.loads(response.get("body").read().decode("utf-8"))
     
     if model_id.startswith('stability'):
-        base64_image = response_body.get("artifacts")[0].get("base64")
-        finish_reason = response_body.get("artifacts")[0].get("finishReason")
-        if finish_reason in ["ERROR", "CONTENT_FILTERED"]:
-            raise ImageError(f"Image generation error. Error code is {finish_reason}")
+        finish_reasons = response_body.get('finish_reasons')
+        logger.info(f"finish reasons is: {finish_reasons}")
+        seeds = response_body.get('seeds')
+        images = response_body.get('images')[0]
+        # 检查是否有错误
+        if finish_reasons and any(reason is not None for reason in finish_reasons):
+            raise ImageError(f"Image generation error. Error code is {finish_reasons}")
+        image_bytes = base64.b64decode(images)
     else:  # Titan model
         base64_image = response_body.get("images")[0]
         if response_body.get("error"):
             raise ImageError(f"Image generation error. Error is {response_body.get('error')}")
-
-    image_bytes = base64.b64decode(base64_image.encode("ascii"))
+        image_bytes = base64.b64decode(base64_image.encode("ascii"))
+        body_dict = json.loads(body)
+        seeds = body_dict.get("imageGenerationConfig", {}).get("seed", 0)
+    
     logger.info(f"Successfully generated image with model {model_id}")
     
-    return image_bytes
+    return seeds, image_bytes
 
 
 def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low quality', source_image=None, **kwargs):
@@ -70,42 +76,26 @@ def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low 
         tuple: A tuple containing status code (0 for success, 1 for failure) and result (file path or error message).
     """
     try:
-        if model_id == 'stability.stable-diffusion-xl-v1':
+        if model_id.startswith('stability'):
             request_data = {
-                "text_prompts": [
-                    {"text": positive_prompt, "weight": 1},
-                    {"text": negative_prompt, "weight": -1},
-                ],
-                "height": kwargs.get('height', 1024),
-                "width": kwargs.get('width', 1024),
-                "cfg_scale": kwargs.get('cfg_scale', 12),
-                "clip_guidance_preset": kwargs.get('clip_guidance_preset', "NONE"),
-                "sampler": kwargs.get('sampler', "K_DPMPP_2M"),
-                "samples": kwargs.get('samples', 1),
-                "seed": kwargs.get('seed', 123456),
-                "steps": kwargs.get('steps', 25),
+                "prompt": positive_prompt,
+                "negative_prompt": negative_prompt,
+                "mode": kwargs.get('mode', "text-to-image") ,
+                "aspect_ratio": kwargs.get('aspect_ratio', "1:1") ,
+                "seed": kwargs.get('seed', 0),
+                "output_format": kwargs.get('output_format', 'png'),
             }
-            
-            if source_image:
+            if source_image and model_id == "stability.sd3-large-v1:0":
                 # Image variation mode
+                request_data.pop('aspect_ratio', None)
                 request_data.update({
-                    "init_image_mode": "IMAGE_STRENGTH",
-                    "image_strength": kwargs.get('image_strength', 0.5),
-                    "cfg_scale": kwargs.get('cfg_scale', 7),
-                    "clip_guidance_preset": kwargs.get('clip_guidance_preset', "SLOWER"),
-                    "steps": kwargs.get('steps', 30),
+                    "mode": "image-to-image",
+                    "strength": kwargs.get('strength', 0.75),
                 })
                 
-                with Image.open(source_image) as image:
-                    original_width, original_height = image.size
-                    resized_image = image.resize((request_data["width"], request_data["height"]))
-                    buffered = io.BytesIO()
-                    resized_image.save(buffered, format="PNG")
-                    request_data["init_image"] = base64.b64encode(buffered.getvalue()).decode("utf-8")
-            else:
-                # Text to image mode
-                request_data["style_preset"] = kwargs.get('style_preset', "anime")
-            
+                with open(source_image, "rb") as image_file:
+                    request_data["image"] = base64.b64encode(image_file.read()).decode("utf-8")
+
             body = json.dumps(request_data)
             
         elif model_id == 'amazon.titan-image-generator-v2:0':
@@ -173,12 +163,10 @@ def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low 
         else:
             raise ValueError(f"Unsupported model_id: {model_id}")
 
-        image_bytes = generate_image_request(model_id=model_id, body=body)
+        seeds, image_bytes = generate_image_request(model_id=model_id, body=body)
         image = Image.open(io.BytesIO(image_bytes))
         
         if source_image:
-            if model_id == 'stability.stable-diffusion-xl-v1':
-                image = image.resize((original_width, original_height))
             prefix = "variation"
         else:
             prefix = "text2image"
@@ -244,16 +232,32 @@ def save_image(image, prefix="generated_image"):
         logger.error(f"Failed to save image: {str(err)}")
         return None
         
-def generate_prompt_from_image(source_image, style):
-    user_text = f'''I'm using Stable Diffusion XL to generate variant images in different artistic styles. I'll provide an image for you to analyze. Based on that analysis, please generate a detailed text prompt in the {style} style. The prompt should:
+def generate_prompt_from_image(source_image, positive_prompt=None):
+    user_text = f'''Analyze the provided image and generate an optimized text prompt for Stable Diffusion image-to-image generation. Your response should:
+1. Describe the image content:
+   - Main subject(s) and their characteristics
+   - Background and setting
+   - Composition and framing
+2. Specify visual elements:
+   - Color palette and dominant colors
+   - Lighting conditions and effects
+   - Textures and materials
+   - Style (e.g., photorealistic, painterly, cartoon)
+3. Capture the mood and atmosphere
+4. Incorporate artistic techniques or references if applicable
+5. Use Stable Diffusion-specific formatting:
+   - Separate elements with commas
+   - Use () for emphasis and [] for de-emphasis
+   - Include relevant artistic or technical terms
+6. Suggest 2-3 potential creative variations or enhancements
+Initial prompt (if any):
+{positive_prompt}
 
-    1. Accurately describe the key elements, subjects, and composition of the original image.
-    2. Incorporate specific characteristics, techniques, and visual elements associated with the {style} style.
-    3. Include relevant details about color palette, lighting, texture, and mood that would be appropriate for the chosen style.
-    4. Be formatted in a way that's optimized for Stable Diffusion XL, using any relevant prompt engineering techniques.
+Based on this initial prompt and the image analysis, create an enhanced, comprehensive prompt that maintains the original intent while improving its effectiveness for Stable Diffusion.
 
-    please give me text prompt only and no need any notes and explanation.
-    '''
+Provide only the generated prompt, formatted for direct use in Stable Diffusion. Aim for 50-75 words. Do not include explanations or notes.
+
+'''
     max_size=1568
     # source_image is a file name
     with open(source_image, "rb") as f:
@@ -277,8 +281,10 @@ def generate_prompt_from_image(source_image, style):
         resized_bytes = resized_bytes.getvalue()
 
     bedrock_client = boto3.client(service_name='bedrock-runtime', region_name='us-west-2')
+    inferenceProfileId = 'arn:aws:bedrock:us-west-2:109770975239:inference-profile/us.anthropic.claude-3-5-sonnet-20240620-v1:0'
+    model_id = 'anthropic.claude-3-5-sonnet-20240620-v1:0'
     response = bedrock_client.converse(
-        modelId='anthropic.claude-3-5-sonnet-20240620-v1:0',
+        modelId=inferenceProfileId,
         messages=[{"role": "user", "content": [{"text": user_text, }, {"image": {"format": img_format, "source": {"bytes": resized_bytes}}}]}],
         inferenceConfig={"temperature": 0.1},
         additionalModelRequestFields={"top_k": 200}
