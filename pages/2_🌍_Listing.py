@@ -64,7 +64,7 @@ def main():
         expander.write('Description:')
         expander.write(as_des)
 
-        result = st.button("点击生成商品Listing")
+        result = st.button("生成商品Listing")
 
         # if the button is pressed, the model is invoked, and the results are output to the front end
         if result:
@@ -72,6 +72,7 @@ def main():
             if File is not None:
 
                 save_folder = os.getenv("save_folder")
+
                 print(save_folder)
                 print('filename:' + File.name)
 
@@ -98,17 +99,29 @@ def main():
                         rslist = str(response['output']).rsplit('>')
                         output = rslist[-1]
 
-                    print("output:" + llm_output)
+                    # 2. 显示图片功能
+                    st.subheader("商品图片")
+                    # 获取图片的宽度
+                    img = Image.open(File)
+                    width, height = img.size
+
+                    # 如果宽度超过 256 像素,则按比例缩小到 256 像素宽度
+                    if width > 256:
+                        st.image(File, caption='Uploaded Image', width=256)
+                    else:
+                        st.image(File, caption='Uploaded Image', use_column_width=True)
 
                     title, bullets, description = parse_listing_xml_response(llm_output)
+
+                    st.subheader("商品Listing")
 
                     st.write("Title:\n")
                     st.write(title)
 
-                    st.write("Bullet Points:\n")
+                    st.write("Bullet Point:\n")
                     st.write(bullets)
 
-                    st.write("Description:\n")
+                    st.write("Product Description:\n")
                     st.write(description)
     
                     # removing the image file that was temporarily saved to perform the question and answer task
