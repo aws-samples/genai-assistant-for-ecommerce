@@ -26,7 +26,7 @@ def initialize_llm():
     """Initialize the Bedrock runtime."""
     bedrock_runtime =  boto3.client(
         service_name="bedrock-runtime",
-        region_name="us-east-1",
+        region_name="us-west-2",
     )
 
     """Initialize the language model."""

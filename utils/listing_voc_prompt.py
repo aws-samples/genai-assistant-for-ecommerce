@@ -22,7 +22,7 @@ data_folder = os.getenv("data_folder")
 # instantiating the Bedrock client, and passing in the CLI profile
 # boto3.setup_default_session(profile_name=os.getenv("profile_name"))
 
-bedrock = boto3.client('bedrock-runtime', 'us-east-1')
+bedrock = boto3.client('bedrock-runtime', 'us-west-2')
 
 def gen_listing_prompt(asin, domain, brand, features, language):
     # results = get_product(asin, domain)
