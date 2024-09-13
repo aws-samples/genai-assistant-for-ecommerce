@@ -7,7 +7,6 @@ import json
 from dotenv import load_dotenv
 from utils.listing_voc_prompt import gen_listing_prompt, gen_voc_prompt, bedrock_converse_api
 from utils.listing_voc_prompt import gen_purchase_motivation_prompt, gen_user_suggestions_prompt, gen_negative_opinions_prompt,gen_product_experience_prompt,gen_star_rating_distribution_prompt,gen_user_expectations_prompt
-from utils.listing_voc_agents import create_listing
 
 from PIL import Image
 

@@ -6,7 +6,6 @@ import os
 import json
 from dotenv import load_dotenv
 from utils.listing_voc_prompt import gen_listing_prompt, bedrock_converse_api, bedrock_converse_api_with_image
-from utils.listing_voc_agents import create_listing
 
 from PIL import Image
 
@@ -93,11 +92,6 @@ def main():
                         
                         llm_output = bedrock_converse_api_with_image(model_Id_multi_modal, file_name, user_prompt)
                         #st.write(output)
-                    elif mode_lable == 'Agent':
-                        response = create_listing(asin, file_name, brand, features)
-                        print(response)
-                        rslist = str(response['output']).rsplit('>')
-                        output = rslist[-1]
 
                     # 2. 显示图片功能
                     st.subheader("商品图片")

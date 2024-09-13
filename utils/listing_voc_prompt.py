@@ -8,11 +8,6 @@ import base64
 import io
 from PIL import Image
 
-from langchain.agents import tool 
-from langchain_community.chat_models import BedrockChat
-from langchain.llms import Bedrock
-
-from utils.amazon_scraper import get_product, get_reviews, get_bestsellers
 
 # loading in variables from .env file
 load_dotenv()

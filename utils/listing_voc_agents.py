@@ -8,15 +8,13 @@ import io
 import base64
 from pathlib import Path
 
-#from langchain_community.chat_models import BedrockChat
+
 from langchain_aws import ChatBedrock
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import (SystemMessage, HumanMessage, AIMessage)
 from langchain.agents import AgentExecutor, AgentType, initialize_agent, create_tool_calling_agent, tool
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_core.messages import HumanMessage
+#from langchain_community.tools.tavily_search import TavilySearchResults
 
 from utils.amazon_scraper import get_product, get_reviews
 
@@ -71,7 +69,7 @@ def magic_function(input: int) -> int:
     """Applies a magic function to an input."""
     return input + 2      
 
-search = TavilySearchResults()
+#search = TavilySearchResults()
 
 def create_listing(asin:str, image_name:str, brand:str, product_features:str):
     print(f"asin: {asin}")
