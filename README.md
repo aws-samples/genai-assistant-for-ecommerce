@@ -8,7 +8,7 @@ This sample code showcases a Streamlit frontend where users can input requests f
 
 ## Prerequisites:
 1. Amazon Bedrock Access.
-2. Ensure Python 3.9 installed. it can be downloaded [here](https://www.python.org/downloads/release/python-3911/).
+2. Ensure Python 3.9 or above version installed. it can be downloaded [here](https://www.python.org/downloads/release/python-3911/).
 
 Step 1: Clone this repository
 
