@@ -2,22 +2,24 @@
 
 This repo demonstrates how to use Amazon Bedrock and generative AI to boost business innovation and efficiency through natural language interactions.
 
-This sample code showcases a Streamlit frontend where users can input requests for various use cases, including text-to-image, image-to-image, and image question-answering.
+This sample code showcases a Streamlit frontend where users can input requests for various use cases, including text-to-image,image-to-text,image-to-image, and image question-answering.
 
 # How to deploy:
 
 ## Prerequisites:
 1. Amazon Bedrock Access.
-2. Ensure Python 3.9 or above version installed. it can be downloaded [here](https://www.python.org/downloads/release/python-3911/).
+2. Ensure Python 3.12 or above version installed. it can be downloaded [here](https://www.python.org/downloads/).
 
 Step 1: Clone this repository
 
-Step 2: Set up and activate a Python 3.9 virtual environment
+Step 2: Set up and activate a Python 3.12 virtual environment
 
 ```
-pip install virtualenv
-python3.9 -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+
+# create a python venv at the root directory of this project
+python3 -m venv .venv
+# activate this venv
+source .venv/bin/activate  # On Windows use `venv\Scripts\activate`
 ```
 Step 3: Install requirements
 

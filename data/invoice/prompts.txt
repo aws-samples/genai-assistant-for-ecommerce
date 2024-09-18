@@ -1,0 +1,61 @@
+The unformated raw text in the image is pre parsed in messages's content,text start with 'Image N:',N represents the sequence number of images.
+Please prioritize messages's content results when responding, and keep the exact spelling of words in uppercase and lowercase letters.
+Please provide the following information based on the invoices provided, and output it in JSON array.
+
+<json_format>
+"seller_company": I need the invoice seller's name,the seller's company name may be described as "seller", "sold from", "vendor", "supplier", "卖方", "乙方", "供应商". usually at the top center of the invoice,Prioritize company name in title or first line of the invoice,Prioritize original English Company Name,if only chinese company name, priority traditional chinese name;DO NOT translate name.
+"buyer_company": I need the invoice buyer's name,The buyer's name is generally marked with terms such as "Buyer", "to", "向", "甲方", "买方", "买家", "客户", "购买方", etc., representing the buyer.
+"date": Creation Date, the value is in the YYYY-MM-DD format.
+"invoice_number": invoice number, could also be described as purchase number, order number, serial number, if this are none of these, output an empty string.
+"currency": currency abbreviation in ISO 4217 standard, like USD, EUR, CNY, CAD, HKD, JPY, AUD etc. DO NOT use other abbreviations.
+"total_amount": the total amount of this order in float data type.
+</json_format>
+
+below is output example,it a json array:
+<json_example>
+[
+    {
+      "seller_company": "seller company 1",
+      "buyer_company": "buyer company 1",
+      "date": "2024-08-30",
+      "invoice_number": "6123450",
+      "currency": "USD",
+      "total_amount": 88.88
+    },
+    {
+      "seller_company": "seller company 2",
+      "buyer_company": "buyer company 2",
+      "date": "2024-08-31",
+      "invoice_number": "6123451",
+      "currency": "CNY",
+      "total_amount": 88.89
+    }
+]
+</json_example>
+[
+    {
+        "seller_company": "xxx公司",
+        "buyer_company": "xx公司",
+        "date": "2024-09-10",
+        "invoice_number": "6xxxx0",
+        "currency": "USD",
+        "total_amount": 88.08
+    }
+]
+
+example output:
+[
+    {
+        "seller_company": "xxx公司",
+        "buyer_company": "xx公司",
+        "date": "2024-09-10",
+        "invoice_number": "6xxxx0",
+        "currency": "USD",
+        "total_amount": 88.08
+    }
+]
+
+Please note that the result does not need additional explanation fields,You only need output json array,do not output any conversation messages between you and me that are not relevant to the invoices content
+Please note that the invoices I provide are 1 to multiple consecutive images, which are continuous.
+Please note that output is a JSON array according to <json_format> structure,and it's must can be directly parsed as json array.
+

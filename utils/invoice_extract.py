@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 """
-
 ref:
     - https://aws.amazon.com/cn/blogs/china/evatmaster-achieves-accurate-invoice-recognition-based-on-claude3
     - https://docs.anthropic.com/en/docs/build-with-claude/vision
@@ -27,12 +26,15 @@ IMAGE_MAX_HEIGHT: Final[int] = 1568
 IMAGE_MAX_WIDTH: Final[int] = 1092
 
 
-class ImageInvoiceExtractor:
+class _ImageInvoiceExtractor:
     """
-    Pdf Invoice Extractor
+    image invoice extractor
     """
 
     def __init__(self, file_path: str):
+        """
+        :param file_path: image file path
+        """
         self._file_path = file_path
         self._prompts_template: str = """
                         The unformated raw text in the image is pre parsed in messages's content,text start with 'Image N:',N represents the sequence number of images.
@@ -70,6 +72,18 @@ class ImageInvoiceExtractor:
                         ]
                         </json_example>
                         
+                        example output:
+                        [
+                            {
+                                "seller_company": "xxx公司",
+                                "buyer_company": "xx公司",
+                                "date": "2024-09-10",
+                                "invoice_number": "6xxxx0",
+                                "currency": "USD",
+                                "total_amount": 88.08
+                            }
+                        ]
+                        
                         Please note that the result does not need additional explanation fields,You only need output json array,do not output any conversation messages between you and me that are not relevant to the invoices content
                         Please note that the invoices I provide are 1 to multiple consecutive images, which are continuous.
                         Please note that output is a JSON array according to <json_format> structure,and it's must can be directly parsed as json array.
@@ -78,12 +92,16 @@ class ImageInvoiceExtractor:
     def _pre_process_images(self, texts: list[str], images: list[str]) -> (list[str], list[str]):
         """
         preprocessing image for claude
-            1. keep image size in proper size
-            2. rotate image if necessary
-            3. convert image to webp format
-            4. convert image to base64 encoding
+            1. rotate image if necessary
+            2. try to extract txt directly from image
+            3. keep image size in proper size
+            4. convert image to webp format
+            5. convert image to base64 encoding
 
         ref: https://docs.anthropic.com/en/docs/build-with-claude/vision#evaluate-image-size
+
+        :param texts: list of texts
+        :param images: list of images
 
         :return: [list of pdf page text content,list of pdf page image base64 encoding]
         """
@@ -97,11 +115,16 @@ class ImageInvoiceExtractor:
                 np.array(image),
                 output_type=pytesseract.Output.DICT
             )["orientation"]
-            # rotate images
+
+            # rotate image if necessary
             if orientation != 0:
                 image = Image.fromarray(np.rot90(np.array(image), k=orientation // 90))
+
+            # extract txt from image if necessary
+            if not texts[i]:
                 texts[i] = pytesseract.image_to_string(image, config="-l chi_sim+eng")
 
+            # keep image size in proper size
             # get image's width,height
             width, height = image.size
             # get image's max long edge
@@ -115,22 +138,18 @@ class ImageInvoiceExtractor:
                 # resize image
                 image = image.resize((width, height))
 
-            # reformat to webp
+            # convert image to webp format
             buffer = io.BytesIO()
             image.save(buffer, format="webp", quality=85)
             image_data = buffer.getvalue()
-            # base64 encode image
+            # convert image to base64 encoding
             images_base64.append(base64.b64encode(image_data).decode("utf-8"))
 
         return texts, images_base64
 
     def _pre_process(self) -> (list[str], list[str]):
         """
-        preprocessing image for claude
-            1. keep image size in proper size
-            2. rotate image if necessary
-            3. convert image to webp format
-            4. convert image to base64 encoding
+        preprocessing image for claude,keep image size in proper size and follow claude's best practice
 
         ref: https://docs.anthropic.com/en/docs/build-with-claude/vision#evaluate-image-size
 
@@ -138,11 +157,15 @@ class ImageInvoiceExtractor:
         """
 
         images: list[Image] = [Image.open(self._file_path)]
-        texts: list[str] = [pytesseract.image_to_string(image, config="-l chi_sim+eng") for image in images]
+        texts: list[str] = ['' for image in images]
 
         return self._pre_process_images(texts, images)
 
     def extract(self) -> str:
+        """
+        :return: use claude 3 haiku to extract invoice information
+        """
+
         texts, images = self._pre_process()
 
         _content = []
@@ -167,6 +190,7 @@ class ImageInvoiceExtractor:
             "type": "text",
             "text": self._prompts_template,
         }
+
         _content.append(_prompts)
 
         body = json.dumps({
@@ -186,25 +210,28 @@ class ImageInvoiceExtractor:
             body=body,
             modelId="anthropic.claude-3-haiku-20240307-v1:0"
         )
+
         result = json.loads(response.get('body').read())["content"][0]["text"]
         return result
 
 
-class PdfInvoiceExtractor(ImageInvoiceExtractor):
+class _PdfInvoiceExtractor(_ImageInvoiceExtractor):
     """
-    Pdf Invoice Extractor
+    PDF invoice extractor
     """
 
     def __init__(self, file_path: str):
+        """
+        :param file_path: PDF file path
+        """
         super().__init__(file_path)
 
     def _pre_process(self) -> (list[str], list[str]):
         """
-        preprocessing image for claude
-            1. keep image size in proper size
-            2. rotate image if necessary
-            3. convert image to webp format
-            4. convert image to base64 encoding
+        preprocessing PDF file for claude:
+            1. try to extract txt directly from pdf file
+            2. convert PDF to images
+            3. combining images and text to extract information comprehensively
 
         ref: https://docs.anthropic.com/en/docs/build-with-claude/vision#evaluate-image-size
 
@@ -221,8 +248,21 @@ class PdfInvoiceExtractor(ImageInvoiceExtractor):
         return self._pre_process_images(texts, images)
 
 
+class InvoiceExtractor:
+    def __init__(self, file_path: str):
+        self._file_path = file_path
+
+    def extract(self) -> str:
+        if self._file_path.endswith(".pdf"):
+            return _PdfInvoiceExtractor(self._file_path).extract()
+        elif self._file_path.endswith(('png', 'jpg', 'jpeg')):
+            return _ImageInvoiceExtractor(self._file_path).extract()
+        else:
+            raise ValueError("Unsupported file type")
+
+
 if __name__ == '__main__':
-    pdf_extractor = PdfInvoiceExtractor("../data/invoice/invoice_sample_1.pdf")
+    pdf_extractor = InvoiceExtractor("../data/invoice/invoice_sample_1.pdf")
     result = pdf_extractor.extract()
     print(result)
     # image_extractor = ImageInvoiceExtractor("../data/invoice/invoice_sample_2.png")
