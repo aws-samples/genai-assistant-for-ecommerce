@@ -22,7 +22,8 @@ def main():
     st.title("AI 图像工厂 🖼️")
     st.markdown("将GenAI的能力应用到电商图片制作中，激发创意，提升效率！")
 
-    image_gen, image_variation_sd, image_variation_titan, image_background_removal = st.tabs(['Image Generation', 'Image Variation(sd)', 'Image Variation(titan)', 'Background Removal'])
+    image_gen, image_variation_sd, image_background_removal = st.tabs(['Image Generation', 'Image Variation',  'Background Removal'])  
+    #image_variation_titan， 'Image Variation(titan)', 暂时隐藏
 
     with image_gen:
         st.title("根据文字描述生成图片")
@@ -113,7 +114,8 @@ def main():
                 # 优化提示词按钮
                 if st.button('优化提示词',key='prompt_optimizer_sd_image'):
                     with st.spinner('正在优化提示词...'):
-                        optimized_prompt = generate_prompt_from_image(file_name, positive_prompt=user_prompt)
+                        optimized_prompt = generate_prompt_from_text(user_prompt)
+                        #optimized_prompt = generate_prompt_from_image(file_name, positive_prompt=user_prompt)
                     st.session_state.user_prompt = optimized_prompt
                     st.rerun()
     
@@ -139,88 +141,6 @@ def main():
         elif uploaded_file is not None:
             process_uploaded_image_sd()
     
-
-    with image_variation_titan:
-        st.title("图像变体生成")
-        st.subheader("上传原图，输入提示词")
-        model_id='amazon.titan-image-generator-v2:0'
-        # 初始化 session state
-        if 'uploaded_file' not in st.session_state:
-            st.session_state.uploaded_file = None
-        if 'prompt' not in st.session_state:
-            st.session_state.prompt = ""
-        if 'generated_image' not in st.session_state:
-            st.session_state.generated_image = None
-        if 'task_type' not in st.session_state:
-            st.session_state.task_type = "image conditioning"
-        
-        def process_uploaded_image_titan():
-            File = st.session_state.uploaded_file
-            save_folder = os.getenv("save_folder")
-            save_path = Path(save_folder, File.name)
-            
-            with open(save_path, mode='wb') as w:
-                w.write(File.getvalue())
-    
-            if save_path.exists():
-                file_name = save_path
-                
-                # 任务类型选择
-                task_type = st.selectbox(
-                    "选择任务类型", 
-                    ["image conditioning", "color guided content"],
-                    index=["image conditioning", "color guided content"].index(st.session_state.task_type),
-                    key="task_type_selector"
-                )
-                st.session_state.task_type = task_type
-    
-                # 提示词输入
-                prompt = st.text_area("输入提示词:", value=st.session_state.prompt, key="prompt_area")
-                st.session_state.prompt = prompt
-    
-                # 生成新图像按钮
-                if st.button('生成新图片', key='titan_generating'):
-                    with st.spinner('正在生成新图片...'):
-                        status, result = generate_or_vary_image(
-                            model_id=model_id, 
-                            positive_prompt=prompt,   
-                            source_image=file_name,
-                            task_type=task_type
-                        )
-                    if status == 0:
-                        st.session_state.generated_image = result
-                        st.success('新图片生成成功！')
-                    else:
-                        st.error(f'遇到执行错误: {result}')
-    
-                # 创建两列布局
-                col1, col2 = st.columns(2)
-    
-                # 在左列显示原始图片
-                with col1:
-                    st.subheader("原始图片")
-                    display_and_resize_image(file_name,512)
-    
-                # 在右列显示生成的变体图片
-                with col2:
-                    st.subheader("变体图片")
-                    if st.session_state.generated_image:
-                        display_and_resize_image(st.session_state.generated_image, 512)
-                    else:
-                        st.info("生成的变体图片将显示在这里")
-    
-        uploaded_file = st.file_uploader('选择你的原始图片', type=["png", "jpg", "jpeg"], key="variation_img_titan")
-        
-        # 检查是否有新文件上传
-        if uploaded_file is not None and uploaded_file != st.session_state.uploaded_file:
-            st.session_state.uploaded_file = uploaded_file
-            # 清除之前的 prompt 和生成的图像
-            st.session_state.prompt = ""
-            st.session_state.generated_image = None
-            process_uploaded_image_titan()
-        elif uploaded_file is not None:
-            process_uploaded_image_titan()
-        
 
     with image_background_removal:
         st.title("图片背景移除 🖼️✂️")
@@ -309,7 +229,6 @@ def display_and_resize_image(file_name, target_size=512):
 
     except Exception as e:
         st.error(f"Error processing image: {str(e)}")
-
 
 if __name__ == '__main__':
     main()
