@@ -32,7 +32,7 @@ def main():
     # default listing container that houses the image upload field
     with st.container():
         # header that is shown on the web UI
-        st.subheader('Listing写作')
+        st.title('Listing写作')
 
         File = st.file_uploader('商品图片', type=["webp", "png", "jpg", "jpeg"], key="new")
         brand = st.text_input("品牌", '')
