@@ -1,3 +1,8 @@
+boto3==1.35.15
+streamlit==1.38.0
+chardet==5.2.0
+python-dotenv==1.0.1
+# below required by invoice extractor
 certifi==2024.7.4
 cffi==1.17.0
 charset-normalizer==3.3.2
@@ -18,7 +23,3 @@ requests==2.32.3
 s3transfer==0.10.2
 six==1.16.0
 urllib3==2.2.2
-boto3==1.35.15
-streamlit==1.38.0
-chardet==5.2.0
-python-dotenv==1.0.1
