@@ -138,7 +138,7 @@ venv.bak/
 # mkdocs documentation
 /site
 /pics
-/images
+# /images
 # mypy
 .mypy_cache/
 .dmypy.json

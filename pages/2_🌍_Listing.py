@@ -18,13 +18,16 @@ model_Id_multi_modal = 'anthropic.claude-3-sonnet-20240229-v1:0'
                     #'meta.llama3-70b-instruct-v1:0' 
                     #'anthropic.claude-3-5-sonnet-20240620-v1:0' 
                     #'anthropic.claude-3-sonnet-20240229-v1:0'
-model_Id = 'meta.llama3-70b-instruct-v1:0' 
+model_Id = 'meta.llama3-1-70b-instruct-v1:0' 
+
+use_multi_modal = False
 
 def main():
     # load environment variables
     load_dotenv()
     
-    st.set_page_config(page_title="AI Listing", )
+    st.set_page_config(page_title="Listing生成")
+
     language_options = ['English', 'Chinese']
     language_lable = st.sidebar.selectbox('Select Language', language_options)
     
@@ -40,9 +43,11 @@ def main():
 
         st.divider()
 
+        # 选择参考热卖商品
         asin_label = ['B0BZYCJK89', 'B0BGYWPWNC', 'B0CX23V2ZK']
         asin = st.selectbox('请选择参考的热卖商品', asin_label)
 
+        # 展示热卖商品参考信息
         filename = './data/' + 'asin_' + asin + '_product.json'
         with open(filename, 'r', encoding='utf-8') as file:
             product_data = file.read()
@@ -63,81 +68,78 @@ def main():
         expander.write('Description:')
         expander.write(as_des)
 
+        # 点击生成Listing
         result = st.button("生成商品Listing")
+        with st.spinner('正在进行Listing写作...'):
+            if result:
+                if File is not None:
+                    save_folder = os.getenv("save_folder")
+                    print('savefolder:' + save_folder)
+                    print('filename:' + File.name)
 
-        # if the button is pressed, the model is invoked, and the results are output to the front end
-        if result:
-            # if an image is uploaded, a file will be present, triggering the image_to_text function
-            if File is not None:
+                    save_path = Path(save_folder, File.name)
+                    with open(save_path, mode='wb') as w:
+                        w.write(File.getvalue())
 
-                save_folder = os.getenv("save_folder")
-
-                print(save_folder)
-                print('filename:' + File.name)
-
-                # create a posix path of save_folder and the file name
-                save_path = Path(save_folder, File.name)
-                # write the uploaded image file to the save_folder you specified
-                with open(save_path, mode='wb') as w:
-                    w.write(File.getvalue())
-
-                # once the save path exists...
-                if save_path.exists():
-
-                    file_name = save_path
-
-                    if mode_lable == 'PE':
+                    if save_path.exists():
+                        
+                        file_name = save_path
+                    
                         user_prompt = gen_listing_prompt(asin, 'com', brand, features, language_lable)
                         print('user_prompt:' + user_prompt)
                         
-                        llm_output = bedrock_converse_api_with_image(model_Id_multi_modal, file_name, user_prompt)
-                        #st.write(output)
+                        if use_multi_modal:
+                            llm_output = bedrock_converse_api_with_image(model_Id_multi_modal, file_name, user_prompt)
 
-                    # 2. 显示图片功能
-                    st.subheader("商品图片")
-                    # 获取图片的宽度
-                    img = Image.open(File)
-                    width, height = img.size
+                            # 2. 显示图片功能
+                            st.subheader("商品图片")
+                            # 获取图片的宽度
+                            img = Image.open(File)
+                            width, height = img.size
 
-                    # 如果宽度超过 256 像素,则按比例缩小到 256 像素宽度
-                    if width > 256:
-                        st.image(File, caption='Uploaded Image', width=256)
-                    else:
-                        st.image(File, caption='Uploaded Image', use_column_width=True)
+                            # 如果宽度超过 256 像素,则按比例缩小到 256 像素宽度
+                            if width > 256:
+                                st.image(File, caption='Uploaded Image', width=256)
+                            else:
+                                st.image(File, caption='Uploaded Image', use_column_width=True)
+                        else:
+                            llm_output = bedrock_converse_api(model_Id, user_prompt)
+                            print(llm_output)
 
-                    title, bullets, description = parse_listing_xml_response(llm_output)
+                    
+                        title, bullets, description = parse_listing_xml_response(llm_output)
 
-                    st.subheader("商品Listing")
+                        st.subheader("商品Listing")
 
-                    st.write("Title:\n")
-                    st.write(title)
+                        st.write("Title:\n")
+                        st.write(title)
 
-                    st.write("Bullet Point:\n")
-                    st.write(bullets)
+                        st.write("Bullet Point:\n")
+                        st.write(bullets)
 
-                    st.write("Product Description:\n")
-                    st.write(description)
-    
-                    # removing the image file that was temporarily saved to perform the question and answer task
-                    os.remove(save_path)
-            else:
-                if mode_lable == 'PE':
-                    user_prompt = gen_listing_prompt(asin, 'com', brand, features, language_lable)
-                    print('user_prompt:' + user_prompt)
-                        
-                    llm_output = bedrock_converse_api(model_Id, user_prompt)
-                    print(llm_output)
+                        st.write("Product Description:\n")
+                        st.write(description)
+        
+                        # removing the image file that was temporarily saved to perform the question and answer task
+                        os.remove(save_path)
+                else:
+                    if mode_lable == 'PE':
+                        user_prompt = gen_listing_prompt(asin, 'com', brand, features, language_lable)
+                        print('user_prompt:' + user_prompt)
+                            
+                        llm_output = bedrock_converse_api(model_Id, user_prompt)
+                        print(llm_output)
 
-                    title, bullets, description = parse_listing_xml_response(llm_output)
+                        title, bullets, description = parse_listing_xml_response(llm_output)
 
-                    st.write("Title:\n")
-                    st.write(title)
+                        st.write("Title:\n")
+                        st.write(title)
 
-                    st.write("Bullet Points:\n")
-                    st.write(bullets)
+                        st.write("Bullet Points:\n")
+                        st.write(bullets)
 
-                    st.write("Description:\n")
-                    st.write(description)
+                        st.write("Description:\n")
+                        st.write(description)
     
 def parse_listing_xml_response(xml_string):
     try:

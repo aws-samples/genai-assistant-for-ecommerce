@@ -13,7 +13,7 @@ from PIL import Image
 import logging
 logger = logging.getLogger(__name__)
 
-model_Id = 'anthropic.claude-3-sonnet-20240229-v1:0'
+model_Id = 'meta.llama3-1-70b-instruct-v1:0'
 
 st.set_page_config(page_title="VoC客户之声", page_icon="🎨", layout="wide")
 
