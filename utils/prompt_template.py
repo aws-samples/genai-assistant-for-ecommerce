@@ -89,8 +89,8 @@ Based on this text analysis, create an enhanced, comprehensive prompt that maint
 Provide only the generated prompt, formatted for direct use in Stable Diffusion. Aim for 50-75 words. Do not include explanations, notes, or variations.
 '''
     bedrock_client = boto3.client(service_name='bedrock-runtime', region_name='us-west-2')
-    #model_id = 'anthropic.claude-3-5-sonnet-20240620-v1:0'
-    model_id = 'meta.llama3-1-8b-instruct-v1:0'
+    model_id = 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+    #model_id = 'meta.llama3-1-8b-instruct-v1:0'
     response = bedrock_client.converse(
         modelId=model_id,
         messages=[{"role": "user", "content": [{"text": user_text, }, {"text": source_text}]}],
