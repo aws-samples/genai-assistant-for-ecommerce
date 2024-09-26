@@ -114,8 +114,8 @@ def main():
                 # 优化提示词按钮
                 if st.button('优化提示词',key='prompt_optimizer_sd_image'):
                     with st.spinner('正在优化提示词...'):
-                        optimized_prompt = generate_prompt_from_text(user_prompt)
-                        #optimized_prompt = generate_prompt_from_image(file_name, positive_prompt=user_prompt)
+                        #optimized_prompt = generate_prompt_from_text(user_prompt)
+                        optimized_prompt = generate_prompt_from_image(file_name, positive_prompt=user_prompt)
                     st.session_state.user_prompt = optimized_prompt
                     st.rerun()
     
