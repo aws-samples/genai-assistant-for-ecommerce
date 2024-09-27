@@ -90,7 +90,7 @@ def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low 
                 request_data.pop('aspect_ratio', None)
                 request_data.update({
                     "mode": "image-to-image",
-                    "strength": kwargs.get('strength', 0.75),
+                    "strength": kwargs.get('strength', 1),
                 })
                 
                 with open(source_image, "rb") as image_file:
@@ -99,6 +99,9 @@ def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low 
             body = json.dumps(request_data)
             
         elif model_id == 'amazon.titan-image-generator-v2:0':
+            print(f"task_type is {kwargs.get('task_type')}")
+            print(f"prompt is: {positive_prompt}")
+            print(f"color_list is: {kwargs.get('color_list')}")
             if kwargs.get('task_type') == "image generation":
                 body = json.dumps({
                     "taskType": "TEXT_IMAGE",
@@ -114,33 +117,16 @@ def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low 
                         "seed": kwargs.get('seed', 0)
                     }
                 })
-            if kwargs.get('task_type') == "image conditioning":
-                input_image=load_and_resize_image(source_image)
-                body = json.dumps({
-                    "taskType": "TEXT_IMAGE",
-                    "textToImageParams": {
-                        "text": positive_prompt, # sample: a cartoon deer in a fair world
-                        "negativeText": negative_prompt,
-                        "conditionImage": input_image,
-                        "controlMode": "CANNY_EDGE", # Optional: CANNY_EDGE | SEGMENTATION
-                        "controlStrength": 0.7
-                    },
-                    "imageGenerationConfig": {
-                    "numberOfImages": 1,
-                    "height": 512,
-                    "width": 512,
-                    "cfgScale": 8.0
-                    }
-                })
-            if kwargs.get('task_type') == "color guided content":
-                input_image=load_and_resize_image(source_image)
-                body = json.dumps({
+            elif kwargs.get('task_type') == "color_guided_titan":
+                print("start color guided titan11")
+                print(kwargs.get('color_list'))
+                color_list = kwargs.get('color_list')
+                request_data = {
                     "taskType": "COLOR_GUIDED_GENERATION",
                     "colorGuidedGenerationParams": {
                         "text": positive_prompt, # sample: a jar of salad dressing in a rustic kitchen surrounded by fresh vegetables with studio lighting
                         "negativeText": negative_prompt,
-                        "referenceImage": input_image,
-                        "colors": ['#ff8080', '#ffb280', '#ffe680', '#e5ff80'] # '#ff8080', '#ffb280', '#ffe680', '#e5ff80'
+                        "colors": color_list # '#ff8080', '#ffb280', '#ffe680', '#e5ff80'
                     },
                     "imageGenerationConfig": {
                     "numberOfImages": 1,
@@ -148,8 +134,13 @@ def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low 
                     "width": 512,
                     "cfgScale": 8.0
                     }
-                })
-            if kwargs.get('task_type') == "background removal":
+                }
+                if source_image:
+                    input_image=load_and_resize_image(source_image)
+                    request_data["colorGuidedGenerationParams"]["referenceImage"] = input_image
+                body = json.dumps(request_data)
+
+            elif kwargs.get('task_type') == "background removal":
                 input_image=load_and_resize_image(source_image)
                 body = json.dumps({
                     "taskType": "BACKGROUND_REMOVAL",
@@ -158,7 +149,7 @@ def generate_or_vary_image(model_id, positive_prompt=None, negative_prompt='low 
                     }
                 })
             else:
-                return 1, "parameters error, please check again"
+                return 1, "parameters error, please check again!"
 
         else:
             raise ValueError(f"Unsupported model_id: {model_id}")

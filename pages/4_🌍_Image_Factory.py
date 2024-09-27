@@ -1,9 +1,6 @@
-import base64
-import string
 import streamlit as st
 from pathlib import Path
 import os
-import json
 from dotenv import load_dotenv
 from utils.prompt_template import generate_prompt_from_image, generate_prompt_from_text
 from utils.image_generation import generate_or_vary_image
@@ -22,7 +19,7 @@ def main():
     st.title("AI 图像工厂 🖼️")
     st.markdown("将GenAI的能力应用到电商图片制作中，激发创意，提升效率！")
 
-    image_gen, image_variation_sd, image_background_removal = st.tabs(['Image Generation', 'Image Variation',  'Background Removal'])  
+    image_gen, image_variation_sd, color_guide_Generation_titan, image_background_removal = st.tabs(['Image Generation', 'Image Variation', 'Color Guided Generation', 'Background Removal'])  
     #image_variation_titan， 'Image Variation(titan)', 暂时隐藏
 
     with image_gen:
@@ -141,28 +138,73 @@ def main():
         elif uploaded_file is not None:
             process_uploaded_image_sd()
     
+    with color_guide_Generation_titan:
+        st.title("指定色号生成图片")
+        st.markdown("我们将为您生成有指定色号的图片，直接通过文本生成图片，或者提供参考原图")
+        model_id='amazon.titan-image-generator-v2:0'
+        color_list_str = st.text_input("输入颜色列表，用逗号分割 (例如: #ff8080,#ffb280,#ffe680,#e5ff80)", key="color_list")
+        color_list = [color.strip() for color in color_list_str.split(',') if color.strip()]
+        prompt = st.text_input("输入提示文本", key="color_guided_prompt")
+        # Option to upload an image or not
+        use_reference_image = st.checkbox("使用参考原图")
+        reference_image = None
+        if use_reference_image:
+            reference_image = st.file_uploader("选择参考原图", type=["png", "jpg", "jpeg"], key="reference_img")
+            if reference_image:
+                reference_image = display_and_resize_image(reference_image, target_size=512)
+            if reference_image is None:
+                st.warning("请上传参考原图!")
+        # can generate color guide image with or without reference_image
+        if st.button("生成图片"):
+            if prompt and color_list:
+                with st.spinner('正在生成图片...'):
+                    save_folder = os.getenv("save_folder")
+                    save_path = Path(save_folder, reference_image.name) if reference_image else None
+                    if reference_image:
+                        with open(save_path, mode='wb') as w:
+                            w.write(reference_image.getvalue())
+                    print("start generate color guide image2")
+                    if save_path:
+                        print("start generate color guide image3")
+                        status, result = generate_or_vary_image(
+                            positive_prompt=prompt,
+                            model_id=model_id,
+                            source_image=save_path,
+                            task_type="color_guided_titan",
+                            color_list=color_list
+                        )
+                    else:
+                        status, result = generate_or_vary_image(
+                                model_id=model_id,
+                                positive_prompt=prompt,
+                                task_type="color_guided_titan",
+                                color_list=color_list
+                            )
+                    if status == 0:
+                        st.success("图片生成成功!")
+                        display_and_resize_image(result, target_size=768)
+                    else:
+                        st.error(f'发生执行错误: {result}')
+            else:
+                st.warning("请输入提示文本和颜色列表!")
+
 
     with image_background_removal:
         st.title("图片背景移除 🖼️✂️")
         st.markdown("上传图片，我们将自动移除背景!")
         model_id='amazon.titan-image-generator-v2:0'
-    
         # 文件上传器
         file = st.file_uploader('选择要处理的图片', type=["png", "jpg", "jpeg"], key="background_removal_img")
-        
         # 创建两列布局来并排显示图片
         col1, col2 = st.columns(2)
-        
         with col1:
             st.subheader("原始图片")
             if file is not None:
                 st.image(file, caption='原始图片', use_column_width=True)
             else:
                 st.info("请上传图片")
-        
         with col2:
             st.subheader("背景移除后")
-    
         # 提交按钮
         result = st.button("移除背景", key="submit_image_for_background_removal")
     
@@ -171,11 +213,9 @@ def main():
                 with st.spinner('正在处理图片...'):
                     save_folder = os.getenv("save_folder")
                     save_path = Path(save_folder, file.name)
-                    
                     # 保存上传的文件
                     with open(save_path, mode='wb') as w:
                         w.write(file.getvalue())
-    
                     if save_path.exists():
                         # 处理图片
                         status, result = generate_or_vary_image(
