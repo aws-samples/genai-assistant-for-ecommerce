@@ -33,6 +33,8 @@ Create a .env file in the root directory with the following content:
 ```
 save_folder=<PATH_TO_ROOT_OF_THIS_REPO>
 ```
+notice: to use invoice info extraction, [tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html) and [poppler](https://poppler.freedesktop.org/) are required.
+
 Step 5: Run the application
 
 ```
