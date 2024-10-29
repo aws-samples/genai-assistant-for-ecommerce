@@ -34,7 +34,6 @@ def main():
 
     with st.container():
         # header that is shown on the web UI
-        st.subheader('Listing写作')
         # 添加一些说明信息
         st.markdown("---")
         st.markdown("📌 支持的发票文件格式: PDF,WEBP,PNG, JPG, JPEG")
